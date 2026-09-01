@@ -60,7 +60,7 @@ custom_css = """
 
     .case-header {
         border-bottom: 1px solid #30363d;
-        padding-bottom: 10px;
+        padding-bottom: 12px;
         margin-bottom: 15px;
         font-size: 0.95rem;
     }
@@ -88,17 +88,17 @@ custom_css = """
         padding: 15px;
         line-height: 1.6;
         color: #f0f6fc;
+        margin-bottom: 15px;
     }
 
     .evidence-box {
-        background-color: #21262d;
+        background-color: #1c2128;
         border-left: 4px solid #f85149;
         color: #ff7b72;
-        padding: 10px 12px;
+        padding: 12px 15px;
         border-radius: 4px;
         font-family: monospace;
         font-size: 0.9rem;
-        margin-top: 12px;
     }
 
     /* 버튼 스타일 */
@@ -210,7 +210,7 @@ def generate_cert_image(player_name, remaining_hp, score):
     return img_byte_arr.getvalue()
 
 # -----------------------------------------------------------------------------
-# 4. 사건 데이터셋 (학생들이 커스텀하기 쉬운 구조)
+# 4. 사건 데이터셋 (깔끔한 HTML 구조 유지)
 # -----------------------------------------------------------------------------
 STORY_STAGES = [
     {
@@ -219,14 +219,7 @@ STORY_STAGES = [
         "sender": "보안팀 <security-alert@drive-check-login.com>",
         "sender_is_safe": False,
         "subject": "[긴급] 사내 보안 지침 개정안 공유 문서를 확인하세요",
-        "body": """
-            안녕하세요 직원 여러분,<br><br>
-            이번 분기 신규 보안 지침 문서가 Google 드라이브로 공유되었습니다.<br>
-            아래 링크를 통해 로그인 후 문서를 열람해주시기 바랍니다.<br><br>
-            <div style="text-align:center; margin:12px 0;">
-                <span style="background:#1f6beb; color:white; padding:8px 16px; border-radius:4px;">문서 바로가기</span>
-            </div>
-        """,
+        "body": "안녕하세요 직원 여러분,<br><br>이번 분기 신규 보안 지침 문서가 Google 드라이브로 공유되었습니다.<br>아래 링크를 통해 로그인 후 문서를 열람해주시기 바랍니다.<br><br><div style='text-align:center; margin:12px 0;'><span style='background:#1f6beb; color:white; padding:8px 16px; border-radius:4px;'>문서 바로가기</span></div>",
         "evidence": "🔗 마우스 연결 예상 주소: https://drive-check-login.com/auth/login",
         "is_phishing": True,
         "explanation": "보낸 사람의 도메인이 공식 회사 도메인이 아닌 외부 피싱 도메인(drive-check-login.com)입니다!"
@@ -237,10 +230,7 @@ STORY_STAGES = [
         "sender": "중앙도서관 <lib-notice@school.ac.kr>",
         "sender_is_safe": True,
         "subject": "[안내] 대출하신 도서의 반납 예정일 안내입니다.",
-        "body": """
-            회원님, 대출하신 도서 [파이썬 프로그래밍 기초]의 반납 예정일이 2일 남았습니다.<br>
-            연장을 원하시면 도서관 홈페이지의 [나의 이용현황]에서 신청해주세요.<br>
-        """,
+        "body": "회원님, 대출하신 도서 [파이썬 프로그래밍 기초]의 반납 예정일이 2일 남았습니다.<br>연장을 원하시면 도서관 홈페이지의 [나의 이용현황]에서 신청해주세요.",
         "evidence": "🔗 링크 주소: https://school.ac.kr/library/mypage",
         "is_phishing": False,
         "explanation": "학교 공식 도메인(school.ac.kr)을 사용 중이며 불필요한 개인정보 입력이나 외부 다운로드를 요구하지 않는 정상 안내 메일입니다."
@@ -251,11 +241,7 @@ STORY_STAGES = [
         "sender": "발주담당자 <order-dept@global-supply.net>",
         "sender_is_safe": False,
         "subject": "[견적서] 요청하신 부품 견적서 및 세금계산서 첨부",
-        "body": """
-            요청하신 견적서 송부드립니다.<br>
-            첨부된 압축파일을 해제한 뒤 확인 부탁드립니다.<br><br>
-            <b>- 첨부파일:</b> <span style="color:#58a6ff; text-decoration:underline;">📄 2026_Estimate_Invoice.pdf.exe</span> (1.8MB)
-        """,
+        "body": "요청하신 견적서 송부드립니다.<br>첨부된 압축파일을 해제한 뒤 확인 부탁드립니다.<br><br><b>- 첨부파일:</b> <span style='color:#58a6ff; text-decoration:underline;'>📄 2026_Estimate_Invoice.pdf.exe</span> (1.8MB)",
         "evidence": "📁 첨부파일 확장자: .pdf.exe (실행 파일)",
         "is_phishing": True,
         "explanation": "문서 파일(.pdf)처럼 보이지만 실제로는 실행 파일(.exe)인 이중 확장자 악성코드 트랩입니다!"
@@ -310,21 +296,20 @@ elif st.session_state.stage == 'quiz':
     
     sender_style = "sender-phishing" if not current_case["sender_is_safe"] else "sender-safe"
     
-    # 이메일 / 문서 UI
-    case_html = f"""
-    <div class="case-card">
-        <div class="case-header">
-            <div><strong>보낸 사람:</strong> <span class="{sender_style}">{current_case['sender']}</span></div>
-            <div style="margin-top:6px;"><strong>제목:</strong> {current_case['subject']}</div>
-        </div>
-        <div class="case-body">
-            {current_case['body']}
-        </div>
-        <div class="evidence-box">
-            🔍 <strong>단서 포착:</strong> {current_case['evidence']}
-        </div>
+    # 렌더링 오류를 완전히 방지한 깔끔한 HTML 매핑
+    case_html = f"""<div class="case-card">
+    <div class="case-header">
+        <div><strong>보낸 사람:</strong> <span class="{sender_style}">{current_case['sender']}</span></div>
+        <div style="margin-top:6px;"><strong>제목:</strong> {current_case['subject']}</div>
     </div>
-    """
+    <div class="case-body">
+        {current_case['body']}
+    </div>
+    <div class="evidence-box">
+        🔍 <strong>단서 포착:</strong> {current_case['evidence']}
+    </div>
+</div>"""
+
     st.markdown(case_html, unsafe_allow_html=True)
     
     st.markdown("#### 🧐 수사관 판정: 이 메일은 안전합니까?")
