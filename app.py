@@ -1,6 +1,7 @@
 import io
 import os
 import re
+import time
 import requests
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
@@ -28,7 +29,7 @@ if 'sound_to_play' not in st.session_state:
     st.session_state.sound_to_play = None
 
 # -----------------------------------------------------------------------------
-# 1. 커스텀 CSS (다크 사이버 테마 & 이메일/의뢰서 뷰어)
+# 1. 커스텀 CSS
 # -----------------------------------------------------------------------------
 custom_css = """
 <style>
@@ -138,7 +139,7 @@ def play_sound(sound_key):
         st.components.v1.html(sound_html, height=0)
 
 # -----------------------------------------------------------------------------
-# 3. 인증서 생성 로직 (나눔고딕 폰트 자동 로드)
+# 3. 인증서 생성 로직
 # -----------------------------------------------------------------------------
 @st.cache_resource
 def get_korean_font(size):
@@ -180,13 +181,11 @@ def generate_cert_image(player_name, remaining_hp, score):
 
     clean_name = remove_emojis(player_name) if player_name else "익명 수사관"
 
-    # 테두리 및 헤더
     draw.rectangle([(15, 15), (width-15, height-15)], outline='#58a6ff', width=3)
     draw.rectangle([(30, 30), (width-30, 95)], fill='#161b22')
     draw.text((width//2, 52), "[ 사이버 보안 수사관 임명장 ]", fill='#58a6ff', font=font_title, anchor="mm")
     draw.text((width//2, 80), "CYBER SECURITY INVESTIGATOR CERTIFICATE", fill='#8b949e', font=font_sub, anchor="mm")
 
-    # 내용 입력
     draw.text((50, 130), f"수 사 관 명: {clean_name}", fill='#ffffff', font=font_bold)
     draw.text((50, 165), f"남은 체력: {'❤️' * remaining_hp} ({remaining_hp}/3)", fill='#ff7b72', font=font_body)
     draw.text((50, 195), f"최종 분석 점수: {score}점", fill='#7ee787', font=font_body)
@@ -210,7 +209,7 @@ def generate_cert_image(player_name, remaining_hp, score):
     return img_byte_arr.getvalue()
 
 # -----------------------------------------------------------------------------
-# 4. 사건 데이터셋 (깔끔한 HTML 구조 유지)
+# 4. 사건 데이터셋
 # -----------------------------------------------------------------------------
 STORY_STAGES = [
     {
@@ -249,7 +248,34 @@ STORY_STAGES = [
 ]
 
 # -----------------------------------------------------------------------------
-# 5. 상단 상태바 및 효과음 재생
+# 5. 중앙 알림 팝업 창 (Streamlit Dialog 사용)
+# -----------------------------------------------------------------------------
+@st.dialog("🚨 수사 분석 결과 알림")
+def show_result_dialog(is_correct, explanation):
+    if is_correct:
+        st.success("🎉 **정확한 분석입니다!**")
+        st.write(explanation)
+        if st.button("다음 사건으로 ➡️", type="primary", use_container_width=True):
+            if st.session_state.quiz_index + 1 < len(STORY_STAGES):
+                st.session_state.quiz_index += 1
+            else:
+                st.session_state.stage = 'clear'
+            st.rerun()
+    else:
+        st.error(f"💥 **판정 실패! (체력 -1)**")
+        st.write(f"현재 남은 체력: {'❤️' * st.session_state.hp}")
+        st.warning(f"**해설:** {explanation}")
+        
+        if st.session_state.hp <= 0:
+            if st.button("💀 수사 실패 화면으로", type="primary", use_container_width=True):
+                st.session_state.stage = 'game_over'
+                st.rerun()
+        else:
+            if st.button("다시 도전하기 🔄", type="primary", use_container_width=True):
+                st.rerun()
+
+# -----------------------------------------------------------------------------
+# 6. 상단 상태바 및 효과음
 # -----------------------------------------------------------------------------
 if st.session_state.stage not in ['intro', 'game_over', 'clear']:
     col_status1, col_status2 = st.columns([2, 1])
@@ -264,7 +290,7 @@ if st.session_state.sound_to_play:
     st.session_state.sound_to_play = None
 
 # -----------------------------------------------------------------------------
-# 6. 메인 화면 흐름 제어
+# 7. 메인 화면 흐름 제어
 # -----------------------------------------------------------------------------
 
 # [1] 시작 화면
@@ -296,7 +322,6 @@ elif st.session_state.stage == 'quiz':
     
     sender_style = "sender-phishing" if not current_case["sender_is_safe"] else "sender-safe"
     
-    # 렌더링 오류를 완전히 방지한 깔끔한 HTML 매핑
     case_html = f"""<div class="case-card">
     <div class="case-header">
         <div><strong>보낸 사람:</strong> <span class="{sender_style}">{current_case['sender']}</span></div>
@@ -320,49 +345,31 @@ elif st.session_state.stage == 'quiz':
     with col_btn1:
         if st.button("✅ 안전한 메일이다", use_container_width=True):
             user_choice_is_phishing = False
-            if user_choice_is_phishing == current_case["is_phishing"]:
+            is_correct = (user_choice_is_phishing == current_case["is_phishing"])
+            
+            if is_correct:
                 st.session_state.sound_to_play = 'success'
                 st.session_state.score += 100
-                st.success(f"🎉 **정확한 분석입니다!**\n\n{current_case['explanation']}")
-                
-                if st.session_state.quiz_index + 1 < len(STORY_STAGES):
-                    st.session_state.quiz_index += 1
-                    st.rerun()
-                else:
-                    st.session_state.stage = 'clear'
-                    st.rerun()
             else:
                 st.session_state.sound_to_play = 'error'
                 st.session_state.hp -= 1
-                if st.session_state.hp <= 0:
-                    st.session_state.stage = 'game_over'
-                else:
-                    st.error(f"💥 **분석 실패! 피싱 트랩에 걸렸습니다!** (체력 -1)\n\n{current_case['explanation']}")
-                st.rerun()
+                
+            show_result_dialog(is_correct, current_case['explanation'])
 
     # [피싱 메일 판정]
     with col_btn2:
         if st.button("🚨 피싱 트랩이다", use_container_width=True):
             user_choice_is_phishing = True
-            if user_choice_is_phishing == current_case["is_phishing"]:
+            is_correct = (user_choice_is_phishing == current_case["is_phishing"])
+            
+            if is_correct:
                 st.session_state.sound_to_play = 'success'
                 st.session_state.score += 100
-                st.success(f"🎉 **정확한 분석입니다!**\n\n{current_case['explanation']}")
-                
-                if st.session_state.quiz_index + 1 < len(STORY_STAGES):
-                    st.session_state.quiz_index += 1
-                    st.rerun()
-                else:
-                    st.session_state.stage = 'clear'
-                    st.rerun()
             else:
                 st.session_state.sound_to_play = 'error'
                 st.session_state.hp -= 1
-                if st.session_state.hp <= 0:
-                    st.session_state.stage = 'game_over'
-                else:
-                    st.error(f"💥 **오판! 이것은 정상적인 메일이었습니다!** (체력 -1)\n\n{current_case['explanation']}")
-                st.rerun()
+                
+            show_result_dialog(is_correct, current_case['explanation'])
 
 # [3] 게임 오버
 elif st.session_state.stage == 'game_over':
